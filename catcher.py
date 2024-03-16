@@ -1,5 +1,6 @@
 import pygame
 import random
+import time
 from pygame.locals import (
     RLEACCEL,
     K_UP,
@@ -11,7 +12,7 @@ from pygame.locals import (
     QUIT,
 )
 
-
+pygame.mixer.init()
 background = pygame.image.load("assets\\background.png")
 rocks = ['assets\\rock1.png',
          'assets\\rock2.png',
@@ -28,6 +29,12 @@ player_moves_left = ['assets\\char_move1_right.png',
                 'assets\\char_move4_right.png']
 
 
+rock_impact_sound = [pygame.mixer.Sound('assets\sound\stone_one.wav'), 
+                    pygame.mixer.Sound('assets\sound\stone_two.wav'), 
+                    pygame.mixer.Sound('assets\sound\stone_three.wav')]
+
+impact_sound = pygame.mixer.Sound('assets\sound\impact.wav')
+
 
 pygame.init()
 clock = pygame.time.Clock()
@@ -37,8 +44,8 @@ counter = 0
 class Player(pygame.sprite.Sprite):
     def __init__(self):
         super(Player, self).__init__()
-        self.surf = pygame.image.load("assets\char_stand2.png").convert()
-        self.surf.set_colorkey((0, 0, 0), RLEACCEL)
+        self.surf = pygame.image.load("assets\char_stand2.png").convert_alpha()
+        # self.surf.set_colorkey((0, 0, 0), RLEACCEL)
         # self.rect = self.surf.get_rect()
         self.rect = self.surf.get_rect(
             center=(
@@ -46,9 +53,13 @@ class Player(pygame.sprite.Sprite):
                 SCREEN_HEIGHT// 2 + 143,
             )
         )
+        self.alive = True
         
         # Move the sprite based on user keypresses
     def update(self, pressed_keys):
+        
+        if not pressed_keys[K_LEFT] and not pressed_keys[K_RIGHT]:
+            self.surf = pygame.image.load("assets\char_stand2.png").convert_alpha()
         # if pressed_keys[K_UP]:
         #     self.rect.move_ip(0, -5)
         # if pressed_keys[K_DOWN]:
@@ -91,6 +102,7 @@ class Enemy(pygame.sprite.Sprite):
     def update(self):
         self.rect.move_ip(0,self.speed)
         if self.rect.bottom > SCREEN_HEIGHT// 2 + 146:
+            random.choice(rock_impact_sound).play(fade_ms=100)
             self.kill()
             
             
@@ -138,6 +150,8 @@ all_sprites.add(player)
 
 # Variable to keep the main loop running
 running = True
+player_alive = True
+
 # Main loop
 while running:
     # Look at every event in the queue
@@ -168,29 +182,32 @@ while running:
             
     pressed_keys = pygame.key.get_pressed()
     
-    player.update(pressed_keys)
+    if player_alive:  # Only update player if alive
+        player.update(pressed_keys)
     
     enemies.update()
     clouds.update()
     
-    # screen.fill((135, 206, 250))
-    screen.blit(background,(0,0))
+    screen.blit(background, (0, 0))
     for entity in clouds:
         screen.blit(entity.surf, entity.rect)
-    # Fill the screen with white
+
     for entity in all_sprites:
         screen.blit(entity.surf, entity.rect)
-        
 
-        
-    if pygame.sprite.spritecollideany(player, enemies):
-        # If so, then remove the player and stop the loop
-        player.kill()
-        running = False
-        
-    
-    
+    # Check for collision only if the player is alive
+    if player.alive and pygame.sprite.spritecollideany(player, enemies):
+        impact_sound.play()
+        player.alive = False  # Mark the player as dead
+        pygame.display.flip()  # Update the display to show the dead player
+        time.sleep(2)  # Wait for 2 seconds to show the dead animation
+        break
+
     pygame.display.flip()
+    
+
     clock.tick(30)
 
+pygame.mixer.music.stop()
+pygame.mixer.quit()
 
