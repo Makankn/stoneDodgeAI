@@ -11,7 +11,7 @@ from pygame.locals import (
     KEYDOWN,
     QUIT,
 )
-
+random.seed(43)
 pygame.mixer.init()
 background = pygame.image.load("assets\\background.png")
 rocks = ['assets\\rock1.png',
@@ -53,7 +53,18 @@ class Player(pygame.sprite.Sprite):
                 SCREEN_HEIGHT// 2 + 143,
             )
         )
+    
         self.alive = True
+        self.sec_counter = 0
+        self.score = 0
+        self.moves = ['right', 'left']
+        
+    def score_calc(self):
+        self.sec_counter+=1
+        if self.sec_counter %150 ==0:
+            self.sec_counter=0
+            self.score +=1
+            
         
         # Move the sprite based on user keypresses
     def update(self, pressed_keys):
@@ -83,6 +94,15 @@ class Player(pygame.sprite.Sprite):
             self.rect.top = 0
         if self.rect.bottom >= SCREEN_HEIGHT:
             self.rect.bottom = SCREEN_HEIGHT
+            
+    def auto_move(self):
+        move = random.choice(self.moves)
+        if move == 'right':
+            self.rect.move_ip(5, 0)
+        else:
+            self.rect.move_ip(-5, 0)
+            
+        
 
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, type):
@@ -95,7 +115,7 @@ class Enemy(pygame.sprite.Sprite):
                 0,
             )
         )
-        self.speed = random.randint(5, 20)
+        self.speed = random.randint(10, 20)
 
     # Move the sprite based on speed
     # Remove the sprite when it passes the left edge of the screen
@@ -137,17 +157,24 @@ SCREEN_HEIGHT = 600
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
 ADDENEMY = pygame.USEREVENT + 1
-pygame.time.set_timer(ADDENEMY, 250)
+pygame.time.set_timer(ADDENEMY, 450)
 ADDCLOUD = pygame.USEREVENT + 2
 pygame.time.set_timer(ADDCLOUD, 800)
 
-player = Player()
+# player = Player()
+
+players_list = [Player() for _ in range(10) ]
+
 
 enemies = pygame.sprite.Group()
 clouds = pygame.sprite.Group()
 all_sprites = pygame.sprite.Group()
-all_sprites.add(player)
+players = pygame.sprite.Group()
 
+# all_sprites.add(player)
+players.add(players_list)
+
+[all_sprites.add(player) for player in players_list]
 # Variable to keep the main loop running
 running = True
 player_alive = True
@@ -169,9 +196,12 @@ while running:
         # Add a new enemy?
         elif event.type == ADDENEMY:
             # Create the new enemy and add it to sprite groups
-            new_enemy = Enemy(type = random.choice(rocks))
-            enemies.add(new_enemy)
-            all_sprites.add(new_enemy)
+            new_enemy1 = Enemy(type = random.choice(rocks))
+            enemies.add(new_enemy1)
+            all_sprites.add(new_enemy1)
+            new_enemy2 = Enemy(type = random.choice(rocks))
+            enemies.add(new_enemy2)
+            all_sprites.add(new_enemy2)
             
         # Add a new cloud?
         elif event.type == ADDCLOUD:
@@ -182,8 +212,10 @@ while running:
             
     pressed_keys = pygame.key.get_pressed()
     
-    if player_alive:  # Only update player if alive
-        player.update(pressed_keys)
+    for player in players:
+        if player.alive:  # Only update player if alive
+            player.update(pressed_keys)
+            player.auto_move()
     
     enemies.update()
     clouds.update()
@@ -194,18 +226,25 @@ while running:
 
     for entity in all_sprites:
         screen.blit(entity.surf, entity.rect)
-
+        
+    for player in players:
     # Check for collision only if the player is alive
-    if player.alive and pygame.sprite.spritecollideany(player, enemies):
-        impact_sound.play()
-        player.alive = False  # Mark the player as dead
-        pygame.display.flip()  # Update the display to show the dead player
-        time.sleep(2)  # Wait for 2 seconds to show the dead animation
-        break
+        if player.alive and pygame.sprite.spritecollideany(player, enemies):
+            impact_sound.play()
+            player.alive = False  # Mark the player as dead
+            pygame.display.flip()
+            player.kill() # Update the display to show the dead player
+            # time.sleep(2)
+            # Wait for 2 seconds to show the dead animation
+            if len(players) ==0:
+                quit()
+            break
+        
+        
 
     pygame.display.flip()
-    
-
+        
+    player.score_calc()
     clock.tick(30)
 
 pygame.mixer.music.stop()
