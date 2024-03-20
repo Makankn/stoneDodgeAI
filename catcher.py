@@ -1,6 +1,7 @@
 import pygame
 import random
 import time
+import neat
 from pygame.locals import (
     RLEACCEL,
     K_UP,
@@ -13,6 +14,9 @@ from pygame.locals import (
 )
 random.seed(43)
 pygame.mixer.init()
+
+
+
 background = pygame.image.load("assets\\background.png")
 rocks = ['assets\\rock1.png',
          'assets\\rock2.png',
@@ -37,10 +41,14 @@ impact_sound = pygame.mixer.Sound('assets\sound\impact.wav')
 
 
 pygame.init()
+
+pygame.font.init() 
+my_font = pygame.font.SysFont('Comic Sans MS', 30)
+
 clock = pygame.time.Clock()
 
 counter = 0
-
+top_score = 0
 class Player(pygame.sprite.Sprite):
     def __init__(self):
         super(Player, self).__init__()
@@ -58,6 +66,10 @@ class Player(pygame.sprite.Sprite):
         self.sec_counter = 0
         self.score = 0
         self.moves = ['right', 'left']
+        
+        self.last_positions = []  # Store last few positions
+        self.position_check_interval = 30  # Check position every 30 frames
+        self.move_threshold = 10  # Minimum distance to be considered as movement
         
     def score_calc(self):
         self.sec_counter+=1
@@ -95,12 +107,37 @@ class Player(pygame.sprite.Sprite):
         if self.rect.bottom >= SCREEN_HEIGHT:
             self.rect.bottom = SCREEN_HEIGHT
             
-    def auto_move(self):
-        move = random.choice(self.moves)
-        if move == 'right':
+    def auto_move(self, right = False):
+        
+        if right:
             self.rect.move_ip(5, 0)
         else:
             self.rect.move_ip(-5, 0)
+            
+        if self.rect.left < 0:
+            self.rect.left = 0
+        if self.rect.right > SCREEN_WIDTH:
+            self.rect.right = SCREEN_WIDTH
+
+
+            
+            
+    def update_last_positions(self):
+        # Call this method every frame to update the position history
+        if len(self.last_positions) >= self.position_check_interval:
+            self.last_positions.pop(0)  # Remove the oldest position
+        self.last_positions.append(self.rect.center)  # Add the current position
+
+    def has_moved_recently(self):
+        # Check if the player has moved significantly in recent frames
+        if len(self.last_positions) < self.position_check_interval:
+            return True  # Not enough data to determine, assume movement
+        initial_position = self.last_positions[0]
+        for pos in self.last_positions[1:]:
+            if abs(pos[0] - initial_position[0]) > self.move_threshold or abs(pos[1] - initial_position[1]) > self.move_threshold:
+                return True  # Significant movement detected
+        return False  # No significant movement
+
             
         
 
@@ -111,7 +148,7 @@ class Enemy(pygame.sprite.Sprite):
         self.surf.set_colorkey((0, 0, 0), RLEACCEL)
         self.rect = self.surf.get_rect(
             center=(
-                random.randint(50, 750),
+                random.randint(0, 800),
                 0,
             )
         )
@@ -147,6 +184,31 @@ class Cloud(pygame.sprite.Sprite):
         if self.rect.bottom < 0:
             self.kill()
             
+def get_game_state(player, enemies):
+    # Normalize player position
+    player_pos = (player.rect.x / SCREEN_WIDTH, player.rect.y / SCREEN_HEIGHT)
+    
+    # Find the closest enemy
+    closest_enemy_distance = float('inf')
+    closest_enemy_position = (0, 0)
+    for enemy in enemies:
+        distance = ((player.rect.x - enemy.rect.x) ** 2 + (player.rect.y - enemy.rect.y) ** 2) ** 0.5
+        if distance < closest_enemy_distance:
+            closest_enemy_distance = distance
+            closest_enemy_position = (enemy.rect.x / SCREEN_WIDTH, enemy.rect.y / SCREEN_HEIGHT)
+
+    # Normalize closest enemy distance
+    closest_enemy_distance_normalized = closest_enemy_distance / (SCREEN_WIDTH ** 2 + SCREEN_HEIGHT ** 2) ** 0.5
+
+    # Construct the game state
+    game_state = [
+        # player_pos[0], player_pos[1],  # Player X, Y
+        closest_enemy_position[0], closest_enemy_position[1],  # Closest enemy X, Y
+        closest_enemy_distance_normalized  # Normalized distance to closest enemy
+    ]
+
+    return game_state
+
 
 # Define constants for the screen width and height
 SCREEN_WIDTH = 800
@@ -157,96 +219,214 @@ SCREEN_HEIGHT = 600
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
 ADDENEMY = pygame.USEREVENT + 1
-pygame.time.set_timer(ADDENEMY, 450)
+pygame.time.set_timer(ADDENEMY, 250)
 ADDCLOUD = pygame.USEREVENT + 2
 pygame.time.set_timer(ADDCLOUD, 800)
 
-# player = Player()
+# # player = Player()
 
-players_list = [Player() for _ in range(10) ]
+# players_list = [Player() for _ in range(10) ]
 
 
-enemies = pygame.sprite.Group()
-clouds = pygame.sprite.Group()
-all_sprites = pygame.sprite.Group()
-players = pygame.sprite.Group()
+# enemies = pygame.sprite.Group()
+# clouds = pygame.sprite.Group()
+# all_sprites = pygame.sprite.Group()
+# players = pygame.sprite.Group()
 
-# all_sprites.add(player)
-players.add(players_list)
+# # all_sprites.add(player)
+# players.add(players_list)
 
-[all_sprites.add(player) for player in players_list]
-# Variable to keep the main loop running
-running = True
-player_alive = True
+# [all_sprites.add(player) for player in players_list]
+# # Variable to keep the main loop running
+# running = True
+# player_alive = True
 
-# Main loop
-while running:
-    # Look at every event in the queue
-    for event in pygame.event.get():
-        # Did the user hit a key?
-        if event.type == KEYDOWN:
-            # Was it the Escape key? If so, stop the loop.
-            if event.key == K_ESCAPE:
+
+# # Main loop
+# while running:
+#     # Look at every event in the queue
+#     for event in pygame.event.get():
+#         # Did the user hit a key?
+#         if event.type == KEYDOWN:
+#             # Was it the Escape key? If so, stop the loop.
+#             if event.key == K_ESCAPE:
+#                 running = False
+
+#         # Did the user click the window close button? If so, stop the loop.
+#         elif event.type == QUIT:
+#             running = False
+            
+#         # Add a new enemy?
+#         elif event.type == ADDENEMY:
+#             # Create the new enemy and add it to sprite groups
+#             new_enemy1 = Enemy(type = random.choice(rocks))
+#             enemies.add(new_enemy1)
+#             all_sprites.add(new_enemy1)
+#             new_enemy2 = Enemy(type = random.choice(rocks))
+#             enemies.add(new_enemy2)
+#             all_sprites.add(new_enemy2)
+            
+#         # Add a new cloud?
+#         elif event.type == ADDCLOUD:
+#             # Create the new cloud and add it to sprite groups
+#             new_cloud = Cloud()
+#             clouds.add(new_cloud)
+#             # all_sprites.add(new_cloud)
+            
+#     pressed_keys = pygame.key.get_pressed()
+    
+#     for player in players:
+#         if player.alive:  # Only update player if alive
+#             player.update(pressed_keys)
+#             player.auto_move()
+    
+#     enemies.update()
+#     clouds.update()
+    
+#     screen.blit(background, (0, 0))
+#     for entity in clouds:
+#         screen.blit(entity.surf, entity.rect)
+
+#     for entity in all_sprites:
+#         screen.blit(entity.surf, entity.rect)
+        
+#     scoretext = my_font.render("Score = "+str(top_score), 1, (0,0,0))
+#     screen.blit(scoretext, (5, 10))    
+        
+#     for player in players:
+        
+#     # Check for collision only if the player is alive
+#         if player.alive and pygame.sprite.spritecollideany(player, enemies):
+#             impact_sound.play()
+#             player.alive = False  # Mark the player as dead
+#             pygame.display.flip()
+#             player.kill() # Update the display to show the dead player
+#             if len(players) ==0:
+#                 quit()
+#             break
+        
+        
+
+#     pygame.display.flip()
+#     [x.score_calc() for x in players]
+#     top_score = max([x.score for x in players])    
+#     clock.tick(30)
+
+# pygame.mixer.music.stop()
+# pygame.mixer.quit()
+
+
+
+
+def eval_genomes(genomes, config):
+    global all_sprites, players, enemies, clouds
+
+    # Reset game state for a new generation
+    all_sprites = pygame.sprite.Group()
+    players = pygame.sprite.Group()
+    enemies = pygame.sprite.Group()
+    clouds = pygame.sprite.Group()
+
+    nets = []
+    ge = []
+    player_nets = {}
+    ge_players = {}
+    
+    for genome_id, genome in genomes:
+        net = neat.nn.FeedForwardNetwork.create(genome, config)
+        player = Player()  # Your Player class instance
+        players.add(player)
+        all_sprites.add(player)
+        player_nets[player] = net  # Map player to its network
+        genome.fitness = 0  # Initialize fitness
+        # ge.append(genome)
+        ge_players[player] = genome
+
+    # Main game loop
+    running = True
+    while len(players) > 0:
+        # print(len(players))
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
                 running = False
-
-        # Did the user click the window close button? If so, stop the loop.
-        elif event.type == QUIT:
-            running = False
-            
-        # Add a new enemy?
-        elif event.type == ADDENEMY:
-            # Create the new enemy and add it to sprite groups
-            new_enemy1 = Enemy(type = random.choice(rocks))
-            enemies.add(new_enemy1)
-            all_sprites.add(new_enemy1)
-            new_enemy2 = Enemy(type = random.choice(rocks))
-            enemies.add(new_enemy2)
-            all_sprites.add(new_enemy2)
-            
-        # Add a new cloud?
-        elif event.type == ADDCLOUD:
-            # Create the new cloud and add it to sprite groups
-            new_cloud = Cloud()
-            clouds.add(new_cloud)
-            # all_sprites.add(new_cloud)
-            
-    pressed_keys = pygame.key.get_pressed()
-    
-    for player in players:
-        if player.alive:  # Only update player if alive
-            player.update(pressed_keys)
-            player.auto_move()
-    
-    enemies.update()
-    clouds.update()
-    
-    screen.blit(background, (0, 0))
-    for entity in clouds:
-        screen.blit(entity.surf, entity.rect)
-
-    for entity in all_sprites:
-        screen.blit(entity.surf, entity.rect)
-        
-    for player in players:
-    # Check for collision only if the player is alive
-        if player.alive and pygame.sprite.spritecollideany(player, enemies):
-            impact_sound.play()
-            player.alive = False  # Mark the player as dead
-            pygame.display.flip()
-            player.kill() # Update the display to show the dead player
-            # time.sleep(2)
-            # Wait for 2 seconds to show the dead animation
-            if len(players) ==0:
+                pygame.quit()
                 quit()
-            break
-        
+                
+            elif event.type == ADDENEMY:
+                # Create the new enemy and add it to sprite groups
+                new_enemy1 = Enemy(type = random.choice(rocks))
+                enemies.add(new_enemy1)
+                all_sprites.add(new_enemy1)
+                new_enemy2 = Enemy(type = random.choice(rocks))
+                enemies.add(new_enemy2)
+                all_sprites.add(new_enemy2)
+                
+            # Add a new cloud?
+            elif event.type == ADDCLOUD:
+                # Create the new cloud and add it to sprite groups
+                new_cloud = Cloud()
+                clouds.add(new_cloud)
+
+        # Update game state and render all entities
+        # Assume get_game_state() is a function you define to get inputs for the neural network
         
 
-    pygame.display.flip()
+        for x, player in enumerate(players):
+            game_state = get_game_state(player, enemies)
+            ge_players[player].fitness += 0.1  # Reward staying alive
+            output = player_nets[player].activate(game_state)
+
+            # Decide movement based on neural network output
+            # For simplicity, assuming 2 outputs for left and right movement
+            
+            if output.index(max(output)) == 0:
+                player.auto_move(right=True)
+            else:
+                player.auto_move()
+            # if output[0] > 0.5: player.auto_move(right=True)
+            # if output[1] > 0.5: player.auto_move()
+
+            # Update player and check for game over conditions
+            # player.update()
         
-    player.score_calc()
-    clock.tick(30)
+        # Check for collision only if the player is alive
+            if player.alive and pygame.sprite.spritecollideany(player, enemies):
+                impact_sound.play()
+                del player_nets[player]
+                ge_players[player].fitness -= 0
+                player.alive = False
+                player.kill()
+                pygame.display.flip()
+                # ge[x].fitness -= 1  # Penalty for dying
+# Update the display to show the dead player
 
-pygame.mixer.music.stop()
-pygame.mixer.quit()
 
+        player.update_last_positions()
+        if not player.has_moved_recently():
+            ge_players[player].fitness -= 5
+
+        # Update and draw all game entities
+
+        enemies.update()
+        clouds.update()
+        screen.blit(background, (0, 0))
+        
+        
+        for entity in clouds:
+            screen.blit(entity.surf, entity.rect)
+
+        for entity in all_sprites:
+            screen.blit(entity.surf, entity.rect)
+
+        pygame.display.flip()
+        clock.tick(30)
+
+# Setup NEAT and run
+config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                     neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                     'config-feedforward.txt')
+p = neat.Population(config)
+p.add_reporter(neat.StdOutReporter(True))
+p.add_reporter(neat.StatisticsReporter())
+
+winner = p.run(eval_genomes, 50)  # Run for 50 generations
