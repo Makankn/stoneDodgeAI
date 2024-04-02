@@ -1,6 +1,7 @@
 import pygame
 import random
 import time
+import numpy
 import neat
 from pygame.locals import (
     RLEACCEL,
@@ -12,7 +13,7 @@ from pygame.locals import (
     KEYDOWN,
     QUIT,
 )
-random.seed(43)
+# random.seed(43)
 pygame.mixer.init()
 
 
@@ -43,7 +44,7 @@ impact_sound = pygame.mixer.Sound('assets\sound\impact.wav')
 pygame.init()
 
 pygame.font.init() 
-my_font = pygame.font.SysFont('Comic Sans MS', 30)
+my_font = pygame.font.SysFont('Times New Roman', 30)
 
 clock = pygame.time.Clock()
 
@@ -79,40 +80,48 @@ class Player(pygame.sprite.Sprite):
             
         
         # Move the sprite based on user keypresses
-    def update(self, pressed_keys):
+    # def update(self, pressed_keys):
         
-        if not pressed_keys[K_LEFT] and not pressed_keys[K_RIGHT]:
-            self.surf = pygame.image.load("assets\char_stand2.png").convert_alpha()
-        # if pressed_keys[K_UP]:
-        #     self.rect.move_ip(0, -5)
-        # if pressed_keys[K_DOWN]:
-        #     self.rect.move_ip(0, 5)
-        if pressed_keys[K_LEFT]:
-            global counter
-            self.surf = pygame.image.load(player_moves_left[counter])
-            counter = (counter + 1) % len(player_moves_left)
-            self.rect.move_ip(-5, 0)
-        if pressed_keys[K_RIGHT]:
-            # global counter
-            self.surf = pygame.image.load(player_moves_right[counter])
-            counter = (counter + 1) % len(player_moves_right)
-            self.rect.move_ip(5, 0)
-        # Keep player on the screen
-        if self.rect.left < 0:
-            self.rect.left = 0
-        if self.rect.right > SCREEN_WIDTH:
-            self.rect.right = SCREEN_WIDTH
-        if self.rect.top <= 0:
-            self.rect.top = 0
-        if self.rect.bottom >= SCREEN_HEIGHT:
-            self.rect.bottom = SCREEN_HEIGHT
+    #     if not pressed_keys[K_LEFT] and not pressed_keys[K_RIGHT]:
+    #         self.surf = pygame.image.load("assets\char_stand2.png").convert_alpha()
+    #     # if pressed_keys[K_UP]:
+    #     #     self.rect.move_ip(0, -5)
+    #     # if pressed_keys[K_DOWN]:
+    #     #     self.rect.move_ip(0, 5)
+    #     if pressed_keys[K_LEFT]:
+    #         global counter
+    #         self.surf = pygame.image.load(player_moves_left[counter])
+    #         counter = (counter + 1) % len(player_moves_left)
+    #         self.rect.move_ip(-5, 0)
+    #     if pressed_keys[K_RIGHT]:
+    #         # global counter
+    #         self.surf = pygame.image.load(player_moves_right[counter])
+    #         counter = (counter + 1) % len(player_moves_right)
+    #         self.rect.move_ip(5, 0)
+    #     # Keep player on the screen
+    #     if self.rect.left < 0:
+    #         self.rect.left = 0
+    #     if self.rect.right > SCREEN_WIDTH:
+    #         self.rect.right = SCREEN_WIDTH
+    #     if self.rect.top <= 0:
+    #         self.rect.top = 0
+    #     if self.rect.bottom >= SCREEN_HEIGHT:
+    #         self.rect.bottom = SCREEN_HEIGHT
             
     def auto_move(self, right = False):
         
         if right:
-            self.rect.move_ip(5, 0)
+            global counter
+            
+            self.surf = pygame.image.load(player_moves_right[counter])
+            counter = (counter + 1) % len(player_moves_right)
+            self.rect.move_ip(8, 0)
         else:
-            self.rect.move_ip(-5, 0)
+            
+            self.surf = pygame.image.load(player_moves_left[counter])
+            counter = (counter + 1) % len(player_moves_left)
+            self.rect.move_ip(-8, 0)
+
             
         if self.rect.left < 0:
             self.rect.left = 0
@@ -152,7 +161,28 @@ class Enemy(pygame.sprite.Sprite):
                 0,
             )
         )
-        self.speed = random.randint(10, 20)
+        self.speed = random.randint(15, 20)
+
+    # Move the sprite based on speed
+    # Remove the sprite when it passes the left edge of the screen
+    def update(self):
+        self.rect.move_ip(0,self.speed)
+        if self.rect.bottom > SCREEN_HEIGHT// 2 + 146:
+            random.choice(rock_impact_sound).play(fade_ms=100)
+            self.kill()
+            
+class Side_Enemy(pygame.sprite.Sprite):
+    def __init__(self, type):
+        super(Side_Enemy, self).__init__()
+        self.surf = pygame.image.load(type).convert()
+        self.surf.set_colorkey((0, 0, 0), RLEACCEL)
+        self.rect = self.surf.get_rect(
+            center=(
+                random.choice([0,800]),
+                0,
+            )
+        )
+        self.speed = random.randint(15, 20)
 
     # Move the sprite based on speed
     # Remove the sprite when it passes the left edge of the screen
@@ -184,30 +214,109 @@ class Cloud(pygame.sprite.Sprite):
         if self.rect.bottom < 0:
             self.kill()
             
-def get_game_state(player, enemies):
-    # Normalize player position
-    player_pos = (player.rect.x / SCREEN_WIDTH, player.rect.y / SCREEN_HEIGHT)
+# def get_game_state(player, enemies):
+#     # Normalize player position
+#     player_pos = (player.rect.x / SCREEN_WIDTH, player.rect.y / SCREEN_HEIGHT)
     
-    # Find the closest enemy
+#     # Initialize closest and second closest enemies
+#     closest_enemy_distance = float('inf')
+#     second_closest_enemy_distance = float('inf')
+#     closest_enemy_position = (0, 0)
+#     second_closest_enemy_position = (0, 0)
+
+#     for enemy in enemies:
+#         distance = ((player.rect.x - enemy.rect.x) ** 2 + (player.rect.y - enemy.rect.y) ** 2) ** 0.5
+#         if distance < closest_enemy_distance:
+#             # Update second closest with previous closest
+#             second_closest_enemy_distance = closest_enemy_distance
+#             second_closest_enemy_position = closest_enemy_position
+#             # Update closest
+#             closest_enemy_distance = distance
+#             closest_enemy_position = (enemy.rect.x / SCREEN_WIDTH, enemy.rect.y / SCREEN_HEIGHT)
+#         elif distance < second_closest_enemy_distance:
+#             # Update second closest
+#             second_closest_enemy_distance = distance
+#             second_closest_enemy_position = (enemy.rect.x / SCREEN_WIDTH, enemy.rect.y / SCREEN_HEIGHT)
+
+#     # Normalize distances
+#     closest_enemy_distance_normalized = closest_enemy_distance / (SCREEN_WIDTH ** 2 + SCREEN_HEIGHT ** 2) ** 0.5
+#     second_closest_enemy_distance_normalized = second_closest_enemy_distance / (SCREEN_WIDTH ** 2 + SCREEN_HEIGHT ** 2) ** 0.5
+
+#     # Construct the game state
+#     game_state = [
+#         closest_enemy_position[0],closest_enemy_position[1],  # Closest enemy X, Y
+#         closest_enemy_distance_normalized,  # Normalized distance to closest enemy
+#         second_closest_enemy_position[0], second_closest_enemy_position[1], # Second closest enemy X, Y
+#         second_closest_enemy_distance_normalized  # Normalized distance to second closest enemy
+#     ]
+
+#     return game_state
+
+def get_game_state(player, enemies):
+    player_pos = (player.rect.x / SCREEN_WIDTH, player.rect.y / SCREEN_HEIGHT)
+
+    # Player movement state (1 for right, -1 for left, 0 for still)
+    player_movement = 0  # Default to still
+    player_x , player_y = player.rect.center
+    if player.last_positions:  # Check if there are any recorded positions
+        if player.rect.center == player.last_positions[-1]:
+            player_movement = 0
+        elif player.rect.center[0] > player.last_positions[-1][0]:
+            player_movement = 1
+        elif player.rect.center[0] < player.last_positions[-1][0]:
+            player_movement = -1
+
+    # Number of enemies on screen
+    enemy_count = len(enemies)
+
+    # Player's distance from screen edges
+    distance_from_left_edge = player.rect.x / SCREEN_WIDTH
+    distance_from_right_edge = (SCREEN_WIDTH - player.rect.x) / SCREEN_WIDTH
+
+    # Initialize closest and second closest enemies
     closest_enemy_distance = float('inf')
+    second_closest_enemy_distance = float('inf')
+    closest_enemy_speed = 0  # Speed of the closest enemy
+    second_closest_enemy_speed = 0  # Speed of the closest enemy
+    
     closest_enemy_position = (0, 0)
+    second_closest_enemy_position = (0, 0)
+
     for enemy in enemies:
         distance = ((player.rect.x - enemy.rect.x) ** 2 + (player.rect.y - enemy.rect.y) ** 2) ** 0.5
         if distance < closest_enemy_distance:
+            # Update second closest with previous closest
+            second_closest_enemy_distance = closest_enemy_distance
+            second_closest_enemy_position = closest_enemy_position
+            # Update closest
             closest_enemy_distance = distance
+            closest_enemy_speed = enemy.speed
             closest_enemy_position = (enemy.rect.x / SCREEN_WIDTH, enemy.rect.y / SCREEN_HEIGHT)
+        elif distance < second_closest_enemy_distance:
+            # Update second closest
+            second_closest_enemy_distance = distance
+            second_closest_enemy_speed = enemy.speed
+            second_closest_enemy_position = (enemy.rect.x / SCREEN_WIDTH, enemy.rect.y / SCREEN_HEIGHT)
 
-    # Normalize closest enemy distance
+    # Normalize distances
     closest_enemy_distance_normalized = closest_enemy_distance / (SCREEN_WIDTH ** 2 + SCREEN_HEIGHT ** 2) ** 0.5
+    second_closest_enemy_distance_normalized = second_closest_enemy_distance / (SCREEN_WIDTH ** 2 + SCREEN_HEIGHT ** 2) ** 0.5
 
     # Construct the game state
     game_state = [
-        # player_pos[0], player_pos[1],  # Player X, Y
+        player_movement,  # Player movement state
+        distance_from_left_edge,  # Player's distance from left edge
+        distance_from_right_edge,  # Player's distance from right edge
         closest_enemy_position[0], closest_enemy_position[1],  # Closest enemy X, Y
-        closest_enemy_distance_normalized  # Normalized distance to closest enemy
+        closest_enemy_distance_normalized,  # Normalized distance to closest enemy
+        closest_enemy_speed / 20.0,  # Normalized speed of the closest enemy (assuming max speed is 20)
+
     ]
 
     return game_state
+
+    return game_state
+
 
 
 # Define constants for the screen width and height
@@ -219,7 +328,9 @@ SCREEN_HEIGHT = 600
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
 ADDENEMY = pygame.USEREVENT + 1
-pygame.time.set_timer(ADDENEMY, 250)
+pygame.time.set_timer(ADDENEMY, 450)
+ADDENEMY_side = pygame.USEREVENT + 3
+pygame.time.set_timer(ADDENEMY_side, 500)
 ADDCLOUD = pygame.USEREVENT + 2
 pygame.time.set_timer(ADDCLOUD, 800)
 
@@ -316,9 +427,12 @@ pygame.time.set_timer(ADDCLOUD, 800)
 # pygame.mixer.quit()
 
 
-
+gen = 0
 
 def eval_genomes(genomes, config):
+    scores = []
+    global gen
+    gen +=1 
     global all_sprites, players, enemies, clouds
 
     # Reset game state for a new generation
@@ -361,6 +475,13 @@ def eval_genomes(genomes, config):
                 enemies.add(new_enemy2)
                 all_sprites.add(new_enemy2)
                 
+            elif event.type == ADDENEMY_side:
+                # Create the new enemy and add it to sprite groups
+                new_enemy1 = Side_Enemy(type = random.choice(rocks))
+                enemies.add(new_enemy1)
+                all_sprites.add(new_enemy1)
+
+                
             # Add a new cloud?
             elif event.type == ADDCLOUD:
                 # Create the new cloud and add it to sprite groups
@@ -381,7 +502,7 @@ def eval_genomes(genomes, config):
             
             if output.index(max(output)) == 0:
                 player.auto_move(right=True)
-            else:
+            elif output.index(max(output)) == 1:
                 player.auto_move()
             # if output[0] > 0.5: player.auto_move(right=True)
             # if output[1] > 0.5: player.auto_move()
@@ -391,25 +512,32 @@ def eval_genomes(genomes, config):
         
         # Check for collision only if the player is alive
             if player.alive and pygame.sprite.spritecollideany(player, enemies):
-                impact_sound.play()
+                # impact_sound.play()
                 del player_nets[player]
-                ge_players[player].fitness -= 0
+                ge_players[player].fitness -= 1
                 player.alive = False
                 player.kill()
                 pygame.display.flip()
                 # ge[x].fitness -= 1  # Penalty for dying
 # Update the display to show the dead player
+            if player.alive:
+                scores.append(ge_players[player].fitness)
 
 
         player.update_last_positions()
         if not player.has_moved_recently():
-            ge_players[player].fitness -= 5
+            ge_players[player].fitness -= 0.1
 
         # Update and draw all game entities
 
         enemies.update()
         clouds.update()
+        avgscore_text_each_generation = my_font.render(f'Avg Score: {int(numpy.average(scores))}', False, (0, 0, 0))
+        gen_number = my_font.render(f'generation: {gen}', False, (0, 0, 0))
+        
         screen.blit(background, (0, 0))
+        
+        
         
         
         for entity in clouds:
@@ -417,7 +545,11 @@ def eval_genomes(genomes, config):
 
         for entity in all_sprites:
             screen.blit(entity.surf, entity.rect)
-
+            
+        screen.blit(gen_number, (5,0)) 
+        screen.blit(avgscore_text_each_generation, (5,30))
+        pygame.draw.rect(screen, ("#76442e"), pygame.Rect(0, 0, 180, 70), 2)
+        
         pygame.display.flip()
         clock.tick(30)
 
@@ -426,7 +558,8 @@ config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
                      neat.DefaultSpeciesSet, neat.DefaultStagnation,
                      'config-feedforward.txt')
 p = neat.Population(config)
+neat.Checkpointer(20)
 p.add_reporter(neat.StdOutReporter(True))
 p.add_reporter(neat.StatisticsReporter())
 
-winner = p.run(eval_genomes, 50)  # Run for 50 generations
+winner = p.run(eval_genomes, 200)  # Run for 50 generations
