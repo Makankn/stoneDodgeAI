@@ -27,7 +27,7 @@ Stone Dodge AI is a game built with Pygame where players control a character dod
 
 3. **Run the game**:
     ```bash
-    python stone_dodge_ai.py
+    python catcher.py
     ```
 
 ## How It Works
