@@ -9,8 +9,6 @@ Stone Dodge AI is a game built with Pygame where players control a character dod
 - [Project Structure](#project-structure)
 - [Dependencies](#dependencies)
 - [Configuration](#configuration)
-- [Contributing](#contributing)
-
 ## Getting Started
 
 1. **Clone the repository**:
