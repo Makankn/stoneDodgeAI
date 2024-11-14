@@ -1,7 +1,3 @@
-Here’s a proposed README for your project:
-
----
-
 # Stone Dodge AI
 
 Stone Dodge AI is a game built with Pygame where players control a character dodging rocks falling from the sky. This project implements a neural network to train AI agents, enabling them to learn the best strategies for survival using NEAT (NeuroEvolution of Augmenting Topologies). The AI leverages NEAT-Python to evolve networks over generations, optimizing the agent's ability to dodge falling obstacles.
